@@ -178,11 +178,11 @@ async function drive(){
  const g=$('#gs'),m=S.gfolder.match(/folders\/([\w-]+)/)||S.gfolder.match(/[?&]id=([\w-]+)/)||S.gfolder.match(/^([\w-]{15,})$/),id=m&&m[1];
  if(!id||!S.gkey){g.textContent='Needs a folder link and an API key.';return}
  g.textContent='Loading…';const q=[id],found=[];
- try{while(q.length&&found.length<600){const f=q.shift();let pt='';
+ try{while(q.length&&found.length<5000){const f=q.shift();let pt='';
   do{const r=await fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(`'${f}' in parents and trashed=false`)+'&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000&key='+S.gkey+(pt?'&pageToken='+pt:'')),j=await r.json();
    if(j.error)throw new Error(j.error.message);
-   for(const x of j.files||[]){if(x.mimeType==='application/vnd.google-apps.folder')q.push(x.id);else if(/^(video|image)\//.test(x.mimeType)&&found.length<600)found.push(x)}
-   pt=j.nextPageToken||''}while(pt&&found.length<600)}
+   for(const x of j.files||[]){if(x.mimeType==='application/vnd.google-apps.folder')q.push(x.id);else if(/^(video|image)\//.test(x.mimeType)&&found.length<5000)found.push(x)}
+   pt=j.nextPageToken||''}while(pt&&found.length<5000)}
   for(let i=clips.length;i--;)if(clips[i].remote)clips.splice(i,1);
   found.forEach(x=>clips.push({id:x.id,name:x.name,type:x.mimeType,remote:1,url:`https://www.googleapis.com/drive/v3/files/${x.id}?alt=media&key=${S.gkey}`}));
   g.textContent=found.length?found.length+' clips loaded.':'No videos found. Check the folder is shared with Anyone with the link.';changed()
