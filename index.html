@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stash Grid</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&display=swap">
+<style>
+:root{--panel:#16121f;--line:#2b2438;--tx:#ece8f4;--dim:#9a90ad;--ac:#ff4f8b;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:#000}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;color:var(--tx);font:14px/1.4 Sora,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+body.idle{cursor:none}
+#stage{position:relative;height:100%;overflow:hidden;background:#000;isolation:isolate}
+#fx,#grid{position:absolute;inset:0}
+#grid{display:grid}
+.cell{position:relative;overflow:hidden;background:#07050b;min-width:0;min-height:0;border-radius:var(--r,0)}
+.cell video,.cell img{width:100%;height:100%;object-fit:var(--fit,cover);display:block}
+.ov{position:absolute;inset:0;pointer-events:none}
+#vig{background:radial-gradient(ellipse at center,transparent 40%,#000 100%)}
+#scan{background:repeating-linear-gradient(0deg,rgba(0,0,0,.6) 0 1px,transparent 1px 3px)}
+#spiral{mix-blend-mode:overlay;overflow:hidden}
+#spiral i{position:absolute;left:50%;top:50%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;will-change:transform;background:repeating-conic-gradient(#000 0 15deg,#fff 0 30deg),repeating-radial-gradient(circle,#000 0 4vmax,#fff 0 8vmax);background-blend-mode:difference;animation:sp 12s linear infinite}
+#txt{display:grid;place-items:center;text-align:center;padding:1.5rem;font-weight:600;text-shadow:0 2px 14px #000,0 0 3px #000;opacity:0;transition:opacity .4s;white-space:pre-wrap}
+@keyframes pl{50%{transform:scale(1.035)}}
+@keyframes hc{to{filter:hue-rotate(360deg)}}
+@keyframes dr{50%{transform:scale(1.12) translate(1.5%,1%)}}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#fx,#spiral i{animation:none!important}}
+#empty{position:absolute;inset:0;z-index:2;display:grid;place-content:center;justify-items:center;gap:14px;text-align:center;padding:24px;background:radial-gradient(circle at 50% 40%,#2a1030,#0c0a12 70%)}
+#empty h1{font-size:clamp(26px,6vw,40px);line-height:1.1;margin:0;font-weight:600;letter-spacing:-.02em}
+#empty p{margin:0;color:var(--dim);max-width:36ch}
+button,select,textarea,.btn{font:inherit;color:var(--tx);background:#221b30;border:1px solid var(--line);border-radius:12px;padding:9px 14px;min-height:40px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#17020a;font-weight:600}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+#bar{position:fixed;z-index:5;top:calc(8px + env(safe-area-inset-top,0px));right:8px;display:flex;gap:6px;transition:opacity .3s}
+body.idle #bar{opacity:0;pointer-events:none}
+#bar>*{background:rgba(18,14,26,.78);backdrop-filter:blur(8px)}
+#panel{position:fixed;z-index:6;left:0;right:0;bottom:0;max-height:76%;overflow:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .25s;overscroll-behavior:contain}
+#panel.open{transform:none}
+@media(min-width:760px){#panel{left:auto;top:0;width:340px;max-height:none;border-radius:0;border-top:0;border-left:1px solid var(--line);padding-top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(105%)}}
+#panel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-weight:600;font-size:16px}
+details{border-top:1px solid var(--line);padding:6px 0}
+summary{cursor:pointer;padding:8px 0;font-weight:600;list-style-position:inside}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:5px 0}
+.row label{color:var(--dim);font-size:13px}
+.row output{font-variant-numeric:tabular-nums;font-size:13px;text-align:right}
+.row input[type=range],.row textarea{grid-column:1/-1;width:100%}
+.row input[type=range]{accent-color:var(--ac);height:30px;margin:0}
+.row input[type=color]{width:56px;height:36px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px}
+.row input[type=checkbox]{width:22px;height:22px;accent-color:var(--ac)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}
+#list{max-height:150px;overflow:auto;margin:6px 0;font-size:12.5px}
+#list div{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:2px 0;color:var(--dim)}
+#list span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#list button{min-height:30px;padding:2px 10px}
+.note{color:var(--dim);font-size:12px;margin:4px 0}
+input[type=file]{display:none}
+</style></head>
+<body>
+<div id="stage">
+ <div id="fx"><div id="grid"></div></div>
+ <div class="ov" id="vig"></div><div class="ov" id="scan"></div><div class="ov" id="tint"></div>
+ <div class="ov" id="spiral"><i></i></div><div class="ov" id="txt"></div>
+ <div id="empty"><h1>Your stash, your grid.</h1>
+  <p>Add clips and they play together in a grid you control. On a phone the picker lists Google Drive, Files and Photos, and you can select a whole batch at once.</p>
+  <label class="btn pri">Add clips<input type="file" multiple accept="video/*,image/*" class="pick"></label>
+  <p>Nothing is uploaded. Clips stay on this device.</p></div>
+</div>
+<div id="bar">
+ <label class="btn pri">Add<input type="file" multiple accept="video/*,image/*" class="pick"></label>
+ <button id="shuf">Shuffle</button><button id="full">Full screen</button><button id="gear">Settings</button>
+</div>
+<aside id="panel" aria-label="Settings"><header>Stash Grid <button id="close">Close</button></header><div id="ctl"></div></aside>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),mk=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.textContent=h;return e};
+const D={cols:matchMedia('(max-width:760px)').matches?2:3,rows:2,gap:2,radius:0,fit:'cover',mirror:0,rotate:20,speed:1,sound:'off',rnd:1,keep:1,hue:0,sat:100,con:100,bri:100,blur:0,gray:0,sepia:0,invert:0,anim:'none',ads:5,vig:30,scan:0,tint:0,tc:'#ff2d6f',bl:'overlay',spiral:0,sps:12,txt:'',ti:4,ts:3,to:90};
+let S={...D};try{Object.assign(S,JSON.parse(localStorage.getItem('sg')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('sg',JSON.stringify(S))}catch(e){}};
+const grid=$('#grid'),clips=[];let bag=[],T1,T2,wi=0,ui={};
+
+/* storage of clips on this device (IndexedDB, best effort) */
+const db=new Promise(r=>{try{const q=indexedDB.open('sg',1);q.onupgradeneeded=()=>q.result.createObjectStore('c',{keyPath:'id'});q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch(e){r(null)}});
+const tx=async(m,fn)=>{const d=await db;if(!d)return;try{return await new Promise(r=>{const t=d.transaction('c',m),q=fn(t.objectStore('c'));t.oncomplete=()=>r(q&&q.result);t.onerror=t.onabort=()=>r()})}catch(e){}};
+
+/* grid */
+const next=()=>{if(!clips.length)return null;if(!bag.length)bag=clips.map((_,i)=>i).sort(()=>Math.random()-.5);return clips[bag.pop()]};
+function mount(cell,c){
+ const o=cell.querySelector('video');if(o){o.pause();o.removeAttribute('src');o.load()}
+ cell.replaceChildren();if(!c)return;let m;
+ if(c.type.startsWith('image')){m=new Image();m.src=c.url;m.alt=''}
+ else{m=document.createElement('video');m.muted=true;m.loop=true;m.autoplay=true;m.playsInline=true;m.preload='metadata';m.disablePictureInPicture=true;
+  m.onloadedmetadata=()=>{if(S.rnd&&isFinite(m.duration)&&m.duration>4)m.currentTime=Math.random()*m.duration*.9;m.playbackRate=S.speed;m.play().catch(()=>{})};
+  m.src=c.url}
+ cell.append(m);snd()}
+function build(){grid.replaceChildren();for(let i=0;i<S.cols*S.rows;i++){const c=mk('div','cell');grid.append(c);mount(c,next())}}
+function swap(){const cs=[...grid.children];if(!cs.length||clips.length<2)return;const k=Math.max(1,Math.ceil(cs.length/3));for(let i=0;i<k;i++)mount(cs[Math.random()*cs.length|0],next())}
+const snd=()=>[...grid.children].forEach((c,i)=>{const v=c.querySelector('video');if(v)v.muted=S.sound==='off'||(S.sound==='first cell'&&i>0)});
+const rate=()=>grid.querySelectorAll('video').forEach(v=>v.playbackRate=S.speed);
+function timers(){clearInterval(T1);if(S.rotate>0)T1=setInterval(swap,S.rotate*1000)}
+function words(){clearInterval(T2);const t=$('#txt'),L=S.txt.split('\n').map(s=>s.trim()).filter(Boolean);
+ if(!L.length){t.style.opacity=0;return}
+ const show=()=>{t.style.opacity=0;setTimeout(()=>{t.textContent=L[wi++%L.length];t.style.opacity=S.to/100},400)};show();T2=setInterval(show,S.ti*1000)}
+
+/* look */
+function style(){
+ const f=[];if(S.hue)f.push(`hue-rotate(${S.hue}deg)`);if(S.sat!=100)f.push(`saturate(${S.sat}%)`);if(S.con!=100)f.push(`contrast(${S.con}%)`);if(S.bri!=100)f.push(`brightness(${S.bri}%)`);
+ if(S.blur>0)f.push(`blur(${S.blur}px)`);if(S.gray)f.push(`grayscale(${S.gray}%)`);if(S.sepia)f.push(`sepia(${S.sepia}%)`);if(S.invert)f.push(`invert(${S.invert}%)`);
+ const g=grid.style;g.filter=f.join(' ')||'none';g.transform=S.mirror?'scaleX(-1)':'';g.gap=S.gap+'px';
+ g.gridTemplateColumns=`repeat(${S.cols},minmax(0,1fr))`;g.gridTemplateRows=`repeat(${S.rows},minmax(0,1fr))`;
+ g.setProperty('--fit',S.fit);g.setProperty('--r',S.radius+'px');
+ $('#fx').style.animation={pulse:`pl ${S.ads}s ease-in-out infinite`,'hue cycle':`hc ${S.ads*4}s linear infinite`,drift:`dr ${S.ads*4}s ease-in-out infinite`}[S.anim]||'';
+ const o=(id,on,op)=>{const e=$(id);e.style.display=on?'block':'none';e.style.opacity=op};
+ o('#vig',S.vig,S.vig/100);o('#scan',S.scan,S.scan/100);o('#spiral',S.spiral,S.spiral/100);
+ const t=$('#tint');o('#tint',S.tint,S.tint/100);t.style.background=S.tc;t.style.mixBlendMode=S.bl;
+ $('#spiral i').style.animationDuration=S.sps+'s';
+ const x=$('#txt');x.style.fontSize=S.ts+'rem'}
+const react=k=>{style();if(k==='cols'||k==='rows')build();if(k==='rotate')timers();if(k==='txt'||k==='ti'||k==='to')words();if(k==='sound')snd();if(k==='speed')rate()};
+
+/* controls */
+const SEC=[
+['Grid',[['cols','Columns',1,6,1],['rows','Rows',1,6,1],['gap','Gap',0,24,1],['radius','Corners',0,40,1],['fit','Fit',['cover','contain']],['mirror','Mirror','t']]],
+['Playback',[['rotate','Swap clips every (s, 0 = never)',0,120,1],['speed','Speed',.25,2,.05],['sound','Sound',['off','first cell','all']],['rnd','Random start point','t']]],
+['Effects',[['hue','Hue',0,360,1],['sat','Saturation',0,300,1],['con','Contrast',50,200,1],['bri','Brightness',40,160,1],['blur','Blur',0,12,.5],['gray','Grayscale',0,100,1],['sepia','Sepia',0,100,1],['invert','Invert',0,100,1],['anim','Motion',['none','pulse','hue cycle','drift']],['ads','Motion cycle (s)',1,20,.5]]],
+['Overlays',[['vig','Vignette',0,100,1],['scan','Scanlines',0,100,1],['tint','Color tint',0,100,1],['tc','Tint color','c'],['bl','Tint blend',['normal','multiply','screen','overlay','soft-light','color','difference']],['spiral','Spiral',0,100,1],['sps','Spiral spin (s)',2,60,1],['txt','Words','a'],['ti','Word timing (s)',1,20,.5],['ts','Word size',1,10,.5],['to','Word opacity',0,100,1]]]];
+function ctl(sec,[k,lab,a,b,c]){
+ const r=mk('div','row'),l=mk('label',0,lab),num=typeof a==='number',o=mk('output');let i;
+ if(Array.isArray(a)){i=mk('select');a.forEach(v=>i.add(new Option(v,v)))}
+ else if(a==='t'){i=mk('input');i.type='checkbox'}
+ else if(a==='c'){i=mk('input');i.type='color'}
+ else if(a==='a'){i=mk('textarea');i.rows=3;i.placeholder='One word or phrase per line'}
+ else{i=mk('input');i.type='range';i.min=a;i.max=b;i.step=c}
+ i.id='c_'+k;l.htmlFor=i.id;
+ const set=()=>{if(a==='t')i.checked=!!S[k];else i.value=S[k];o.textContent=num?S[k]:''};
+ i.oninput=()=>{S[k]=a==='t'?+i.checked:num?+i.value:i.value;o.textContent=num?S[k]:'';save();react(k)};
+ set();ui[k]=set;r.append(l);if(num)r.append(o);r.append(i);sec.append(r)}
+const P={Clean:{},Neon:{sat:200,con:120,vig:50,scan:20,tint:30,tc:'#7a2dff',bl:'soft-light'},Noir:{gray:100,con:140,bri:90,vig:70,scan:15},Vapor:{sat:160,con:110,vig:40,scan:30,tint:35,tc:'#00e5ff',bl:'soft-light'},Trance:{sat:150,anim:'hue cycle',ads:6,spiral:45,sps:14,vig:55}};
+const FX=['hue','sat','con','bri','blur','gray','sepia','invert','anim','ads','vig','scan','tint','tc','bl','spiral','sps'];
+const sync=()=>{Object.values(ui).forEach(f=>f());style();build();timers();words();save()};
+function panel(){
+ const root=$('#ctl');
+ let d=mk('details');d.open=true;d.append(mk('summary',0,'Clips'));
+ const br=mk('div','chips'),lb=mk('label','btn pri','Add clips'),fi=mk('input');fi.type='file';fi.multiple=true;fi.accept='video/*,image/*';fi.className='pick';lb.append(fi);br.append(lb);
+ if(matchMedia('(pointer:fine)').matches){const l2=mk('label','btn','Add folder'),f2=mk('input');f2.type='file';f2.multiple=true;f2.webkitdirectory=true;f2.className='pick';l2.append(f2);br.append(l2)}
+ const rm=mk('button',0,'Remove all');rm.onclick=()=>{[...clips].forEach(x=>URL.revokeObjectURL(x.url));clips.length=0;tx('readwrite',s=>s.clear());changed()};br.append(rm);
+ const ls=mk('div');ls.id='list';d.append(br,ls);
+ const kr=mk('div','row'),kl=mk('label',0,'Remember clips on this device'),kc=mk('input');kc.type='checkbox';kc.checked=!!S.keep;kc.id='c_keep';kl.htmlFor='c_keep';kc.onchange=()=>{S.keep=+kc.checked;save()};kr.append(kl,kc);
+ d.append(kr,mk('p','note','Phones: tap Add, then pick Google Drive, Files or Photos in the system picker and select many at once.'));root.append(d);
+ d=mk('details');d.append(mk('summary',0,'Looks'));const ch=mk('div','chips');
+ Object.keys(P).forEach(n=>{const b=mk('button',0,n);b.onclick=()=>{FX.forEach(k=>S[k]=D[k]);Object.assign(S,P[n]);sync()};ch.append(b)});d.append(ch);root.append(d);
+ SEC.forEach(([n,items],j)=>{const e=mk('details');if(!j)e.open=true;e.append(mk('summary',0,n));items.forEach(it=>ctl(e,it));root.append(e)});
+ d=mk('details');d.append(mk('summary',0,'Move settings to another device'));
+ const ta=mk('textarea');ta.rows=3;ta.style.width='100%';const row=mk('div','chips'),cp=mk('button',0,'Copy settings'),ld=mk('button',0,'Load pasted settings');
+ cp.onclick=()=>{ta.value=JSON.stringify(S);ta.select();try{navigator.clipboard.writeText(ta.value)}catch(e){}};
+ ld.onclick=()=>{try{const j=JSON.parse(ta.value);Object.keys(D).forEach(k=>{if(k in j&&typeof j[k]===typeof D[k])S[k]=j[k]});sync()}catch(e){ta.value='That is not valid settings text.'}};
+ row.append(cp,ld);d.append(row,ta,mk('p','note','Clips stay on the device they were added on. Settings can be copied across.'));root.append(d)}
+
+/* clips */
+function push(f,id){const img=/^image\//.test(f.type)||/\.(gif|jpe?g|png|webp|avif)$/i.test(f.name);
+ const c={id:id||(crypto.randomUUID?crypto.randomUUID():String(Math.random())),name:f.name,type:f.type||(img?'image/x':'video/x'),url:URL.createObjectURL(f)};clips.push(c);return c}
+function list(){const ls=$('#list');ls.replaceChildren();clips.forEach(c=>{const r=mk('div'),b=mk('button',0,'✕');b.setAttribute('aria-label','Remove '+c.name);
+ b.onclick=()=>{URL.revokeObjectURL(c.url);clips.splice(clips.indexOf(c),1);tx('readwrite',s=>s.delete(c.id));changed()};r.append(mk('span',0,c.name),b);ls.append(r)})}
+function changed(){list();$('#empty').hidden=!!clips.length;bag=[];build();lock()}
+function add(fl){const a=[...fl].filter(f=>/^(video|image)\//.test(f.type)||/\.(mp4|m4v|mov|webm|mkv|avi|gif|jpe?g|png|webp|avif)$/i.test(f.name));if(!a.length)return;
+ a.forEach(f=>{const c=push(f);if(S.keep)tx('readwrite',s=>s.put({id:c.id,file:f}))});changed()}
+document.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('pick')){add(e.target.files);e.target.value=''}});
+addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer)add(e.dataTransfer.files)});
+
+/* ui */
+let wl;async function lock(){try{if(!wl||wl.released)wl=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&clips.length)lock()});
+const P_=$('#panel');$('#gear').onclick=()=>P_.classList.toggle('open');$('#close').onclick=()=>P_.classList.remove('open');
+$('#shuf').onclick=()=>{bag=[];build()};
+const fs=document.documentElement.requestFullscreen?()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{}):null;
+fs?$('#full').onclick=fs:$('#full').hidden=true;
+let it;const show=()=>{document.body.classList.remove('idle');clearTimeout(it);it=setTimeout(()=>{if(!P_.classList.contains('open'))document.body.classList.add('idle')},3500)};
+['pointermove','pointerdown','keydown'].forEach(e=>addEventListener(e,show));show();
+addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.key==='s'){bag=[];build()}if(e.key==='f'&&fs)fs();if(e.key==='Escape')P_.classList.remove('open')});
+
+panel();style();timers();words();build();
+tx('readonly',s=>s.getAll()).then(rows=>{if(rows&&rows.length){rows.forEach(r=>push(r.file,r.id));changed()}});
+})();
+</script></body></html>
