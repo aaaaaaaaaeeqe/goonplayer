@@ -178,12 +178,12 @@ addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e
 /* playback failures: say why instead of showing black */
 let diag=0;
 function fail(c,cell){const d=mk('div',0,'Cannot play this clip');d.style.cssText='position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:8px;color:#9a90ad;font-size:12px';cell.replaceChildren(d);why(c)}
-async function why(c){if(diag++)return;let t;
- try{const r=await fetch(c.url,{headers:{Range:'bytes=0-0'}});
+async function why(c){if(diag++)return;let t;const ac=new AbortController();
+ try{const r=await fetch(c.url,{signal:ac.signal});
   if(r.ok)t='The file was delivered, but this browser cannot play its format ('+c.type+'). Common with .mov (HEVC), .mkv and .avi files. Try MP4 (H.264) clips.';
   else{let m='';try{m=(await r.json()).error.message}catch(e){}t='Google refused the file (error '+r.status+'). '+m}
- }catch(e){t='Could not reach the file: '+e.message}
- const b=$('#diag');b.textContent=t+'  (tap to close)';b.hidden=false;b.onclick=()=>b.hidden=true;const g=$('#gs');if(g)g.textContent=t}
+ }catch(e){t='The browser blocked the automatic check, so this does not prove the file is bad. Tap the link below and see what opens.'}ac.abort();
+ const b=$('#diag');const a=mk('a',0,'Open this clip in a new tab');a.href=c.url;a.target='_blank';a.rel='noopener';a.style.cssText='display:block;margin-top:8px;color:#ff4f8b;font-weight:600';a.onclick=e=>e.stopPropagation();b.replaceChildren(t+' (tap the box to close)',a);b.hidden=false;b.onclick=()=>b.hidden=true;const g=$('#gs');if(g)g.textContent=t}
 
 /* google drive folder (public link + API key, streams with range requests) */
 async function drive(){
