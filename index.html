@@ -54,6 +54,7 @@ summary{cursor:pointer;padding:8px 0;font-weight:600;list-style-position:inside}
 #list span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #list button{min-height:30px;padding:2px 10px}
 .note{color:var(--dim);font-size:12px;margin:4px 0}
+#diag{position:fixed;z-index:7;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));background:#2a1020;border:1px solid var(--ac);border-radius:12px;padding:12px 14px;font-size:13px}
 input[type=file]{display:none}
 </style></head>
 <body>
@@ -71,6 +72,7 @@ input[type=file]{display:none}
  <label class="btn pri">Add<input type="file" multiple accept="video/*,image/*" class="pick"></label>
  <button id="shuf">Shuffle</button><button id="full">Full screen</button><button id="gear">Settings</button>
 </div>
+<div id="diag" hidden></div>
 <aside id="panel" aria-label="Settings"><header>Stash Grid <button id="close">Close</button></header><div id="ctl"></div></aside>
 <script>
 (()=>{
@@ -92,7 +94,7 @@ function mount(cell,c){
  if(c.type.startsWith('image')){m=new Image();m.src=c.url;m.alt=''}
  else{m=document.createElement('video');m.muted=true;m.loop=true;m.autoplay=true;m.playsInline=true;m.preload='metadata';m.disablePictureInPicture=true;
   m.onloadedmetadata=()=>{if(S.rnd&&isFinite(m.duration)&&m.duration>4)m.currentTime=Math.random()*m.duration*.9;m.playbackRate=S.speed;m.play().catch(()=>{})};
-  m.src=c.url}
+  m.onerror=()=>fail(c,cell);m.src=c.url}
  cell.append(m);snd()}
 function build(){grid.replaceChildren();for(let i=0;i<S.cols*S.rows;i++){const c=mk('div','cell');grid.append(c);mount(c,next())}}
 function swap(){const cs=[...grid.children];if(!cs.length||clips.length<2)return;const k=Math.max(1,Math.ceil(cs.length/3));for(let i=0;i<k;i++)mount(cs[Math.random()*cs.length|0],next())}
@@ -172,6 +174,16 @@ function add(fl){const a=[...fl].filter(f=>/^(video|image)\//.test(f.type)||/\.(
  a.forEach(f=>{const c=push(f);if(S.keep)tx('readwrite',s=>s.put({id:c.id,file:f}))});changed()}
 document.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('pick')){add(e.target.files);e.target.value=''}});
 addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer)add(e.dataTransfer.files)});
+
+/* playback failures: say why instead of showing black */
+let diag=0;
+function fail(c,cell){const d=mk('div',0,'Cannot play this clip');d.style.cssText='position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:8px;color:#9a90ad;font-size:12px';cell.replaceChildren(d);why(c)}
+async function why(c){if(diag++)return;let t;
+ try{const r=await fetch(c.url,{headers:{Range:'bytes=0-0'}});
+  if(r.ok)t='The file was delivered, but this browser cannot play its format ('+c.type+'). Common with .mov (HEVC), .mkv and .avi files. Try MP4 (H.264) clips.';
+  else{let m='';try{m=(await r.json()).error.message}catch(e){}t='Google refused the file (error '+r.status+'). '+m}
+ }catch(e){t='Could not reach the file: '+e.message}
+ const b=$('#diag');b.textContent=t+'  (tap to close)';b.hidden=false;b.onclick=()=>b.hidden=true;const g=$('#gs');if(g)g.textContent=t}
 
 /* google drive folder (public link + API key, streams with range requests) */
 async function drive(){
