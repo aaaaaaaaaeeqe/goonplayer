@@ -63,7 +63,8 @@ input[type=file]{display:none}
  <div class="ov" id="spiral"><i></i></div><div class="ov" id="txt"></div>
  <div id="empty"><h1>Your stash, your grid.</h1>
   <p>Add clips and they play together in a grid you control. On a phone the picker lists Google Drive, Files and Photos, and you can select a whole batch at once.</p>
-  <label class="btn pri">Add clips<input type="file" multiple accept="video/*,image/*" class="pick"></label>
+  <button class="btn pri" id="dgo">Add a Google Drive folder</button>
+  <label class="btn">Add clips from this device<input type="file" multiple accept="video/*,image/*" class="pick"></label>
   <p>Nothing is uploaded. Clips stay on this device.</p></div>
 </div>
 <div id="bar">
@@ -74,7 +75,7 @@ input[type=file]{display:none}
 <script>
 (()=>{
 const $=s=>document.querySelector(s),mk=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.textContent=h;return e};
-const D={cols:matchMedia('(max-width:760px)').matches?2:3,rows:2,gap:2,radius:0,fit:'cover',mirror:0,rotate:20,speed:1,sound:'off',rnd:1,keep:1,hue:0,sat:100,con:100,bri:100,blur:0,gray:0,sepia:0,invert:0,anim:'none',ads:5,vig:30,scan:0,tint:0,tc:'#ff2d6f',bl:'overlay',spiral:0,sps:12,txt:'',ti:4,ts:3,to:90};
+const D={cols:matchMedia('(max-width:760px)').matches?2:3,rows:2,gap:2,radius:0,fit:'cover',mirror:0,rotate:20,speed:1,sound:'off',rnd:1,keep:1,gkey:'',gfolder:'',hue:0,sat:100,con:100,bri:100,blur:0,gray:0,sepia:0,invert:0,anim:'none',ads:5,vig:30,scan:0,tint:0,tc:'#ff2d6f',bl:'overlay',spiral:0,sps:12,txt:'',ti:4,ts:3,to:90};
 let S={...D};try{Object.assign(S,JSON.parse(localStorage.getItem('sg')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('sg',JSON.stringify(S))}catch(e){}};
 const grid=$('#grid'),clips=[];let bag=[],T1,T2,wi=0,ui={};
@@ -146,6 +147,12 @@ function panel(){
  const ls=mk('div');ls.id='list';d.append(br,ls);
  const kr=mk('div','row'),kl=mk('label',0,'Remember clips on this device'),kc=mk('input');kc.type='checkbox';kc.checked=!!S.keep;kc.id='c_keep';kl.htmlFor='c_keep';kc.onchange=()=>{S.keep=+kc.checked;save()};kr.append(kl,kc);
  d.append(kr,mk('p','note','Phones: tap Add, then pick Google Drive, Files or Photos in the system picker and select many at once.'));root.append(d);
+ d=mk('details');d.open=true;d.append(mk('summary',0,'Google Drive folder'));
+ const gi=mk('input'),gk=mk('input'),gb=mk('button','btn pri','Load folder'),gs=mk('p','note');gs.id='gs';
+ gi.placeholder='Paste folder link';gi.value=S.gfolder;gk.placeholder='Google API key (one time)';gk.value=S.gkey;
+ [gi,gk].forEach(x=>{x.style.cssText='width:100%;margin:4px 0;background:#221b30;color:inherit;border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit'});
+ gb.onclick=()=>{S.gfolder=gi.value.trim();S.gkey=gk.value.trim();save();drive()};
+ d.append(gi,gk,gb,gs,mk('p','note','Share the folder as Anyone with the link. Clips stream from Drive, nothing is copied to your phone. Reloads automatically next time.'));root.append(d);
  d=mk('details');d.append(mk('summary',0,'Looks'));const ch=mk('div','chips');
  Object.keys(P).forEach(n=>{const b=mk('button',0,n);b.onclick=()=>{FX.forEach(k=>S[k]=D[k]);Object.assign(S,P[n]);sync()};ch.append(b)});d.append(ch);root.append(d);
  SEC.forEach(([n,items],j)=>{const e=mk('details');if(!j)e.open=true;e.append(mk('summary',0,n));items.forEach(it=>ctl(e,it));root.append(e)});
@@ -166,10 +173,25 @@ function add(fl){const a=[...fl].filter(f=>/^(video|image)\//.test(f.type)||/\.(
 document.addEventListener('change',e=>{if(e.target.classList&&e.target.classList.contains('pick')){add(e.target.files);e.target.value=''}});
 addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer)add(e.dataTransfer.files)});
 
+/* google drive folder (public link + API key, streams with range requests) */
+async function drive(){
+ const g=$('#gs'),m=S.gfolder.match(/folders\/([\w-]+)/)||S.gfolder.match(/[?&]id=([\w-]+)/)||S.gfolder.match(/^([\w-]{15,})$/),id=m&&m[1];
+ if(!id||!S.gkey){g.textContent='Needs a folder link and an API key.';return}
+ g.textContent='Loading…';const q=[id],found=[];
+ try{while(q.length&&found.length<600){const f=q.shift();let pt='';
+  do{const r=await fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(`'${f}' in parents and trashed=false`)+'&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000&key='+S.gkey+(pt?'&pageToken='+pt:'')),j=await r.json();
+   if(j.error)throw new Error(j.error.message);
+   for(const x of j.files||[]){if(x.mimeType==='application/vnd.google-apps.folder')q.push(x.id);else if(/^(video|image)\//.test(x.mimeType)&&found.length<600)found.push(x)}
+   pt=j.nextPageToken||''}while(pt&&found.length<600)}
+  for(let i=clips.length;i--;)if(clips[i].remote)clips.splice(i,1);
+  found.forEach(x=>clips.push({id:x.id,name:x.name,type:x.mimeType,remote:1,url:`https://www.googleapis.com/drive/v3/files/${x.id}?alt=media&key=${S.gkey}`}));
+  g.textContent=found.length?found.length+' clips loaded.':'No videos found. Check the folder is shared with Anyone with the link.';changed()
+ }catch(e){g.textContent='Could not load: '+e.message}}
+
 /* ui */
 let wl;async function lock(){try{if(!wl||wl.released)wl=await navigator.wakeLock.request('screen')}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&clips.length)lock()});
-const P_=$('#panel');$('#gear').onclick=()=>P_.classList.toggle('open');$('#close').onclick=()=>P_.classList.remove('open');
+const P_=$('#panel');$('#gear').onclick=()=>P_.classList.toggle('open');$('#close').onclick=()=>P_.classList.remove('open');$('#dgo').onclick=()=>P_.classList.add('open');
 $('#shuf').onclick=()=>{bag=[];build()};
 const fs=document.documentElement.requestFullscreen?()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{}):null;
 fs?$('#full').onclick=fs:$('#full').hidden=true;
@@ -178,6 +200,6 @@ let it;const show=()=>{document.body.classList.remove('idle');clearTimeout(it);i
 addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.key==='s'){bag=[];build()}if(e.key==='f'&&fs)fs();if(e.key==='Escape')P_.classList.remove('open')});
 
 panel();style();timers();words();build();
-tx('readonly',s=>s.getAll()).then(rows=>{if(rows&&rows.length){rows.forEach(r=>push(r.file,r.id));changed()}});
+tx('readonly',s=>s.getAll()).then(rows=>{if(rows&&rows.length){rows.forEach(r=>push(r.file,r.id));changed()}if(S.gfolder&&S.gkey)drive()});
 })();
 </script></body></html>
